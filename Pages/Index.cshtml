@@ -1,0 +1,515 @@
+@page
+@model RoamBudget.Pages.IndexModel
+@{
+    Layout = "_Layout";
+}
+
+<div class="app">
+
+  <!-- HEADER -->
+  <header class="app-header">
+    <div class="header-inner">
+      <div>
+        <div class="header-eyebrow">Day 006 &mdash; 1000 Days Challenge</div>
+        <h1 class="header-title">Roam<em>Budget</em></h1>
+      </div>
+      <div class="trip-name-display" id="tripNameDisplay">Our Trip</div>
+    </div>
+  </header>
+
+  <!-- TAB BAR -->
+  <nav class="tab-bar">
+    <button class="tab-btn active" id="tabBtn-setup" onclick="switchTab('setup')">
+      <span class="tab-icon">&#9881;</span> Setup
+    </button>
+    <button class="tab-btn" id="tabBtn-expenses" onclick="switchTab('expenses')">
+      <span class="tab-icon">&#128179;</span> Expenses
+    </button>
+    <button class="tab-btn" id="tabBtn-settle" onclick="switchTab('settle')">
+      <span class="tab-icon">&#9878;</span> Settle Up
+    </button>
+  </nav>
+
+  <!-- ══ TAB: SETUP ══════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-setup">
+
+    <div class="section-label">TRIP DETAILS</div>
+    <div class="card">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Trip Name</label>
+          <input class="form-input" type="text" id="tripName" placeholder="e.g. Queenstown 2026" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Kitty per Person (NZD)</label>
+          <div class="input-prefix-wrap">
+            <span class="input-prefix">$</span>
+            <input class="form-input prefixed" type="number" id="kittyAmount" min="0" step="10" value="200" />
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="saveSetup()">Save Trip Details</button>
+    </div>
+
+    <div class="section-label" style="margin-top:1.5rem">
+      MEMBERS <span id="memberCount" class="section-sub"></span>
+    </div>
+    <div class="card">
+      <div class="add-row">
+        <input class="form-input" type="text" id="newMemberName" placeholder="Member name…"
+               onkeydown="if(event.key==='Enter') addMember()" />
+        <button class="btn btn-primary" onclick="addMember()">Add</button>
+      </div>
+      <div id="memberList" class="member-list"></div>
+      <div id="kittyTotal" class="kitty-total-line"></div>
+    </div>
+
+  </div>
+
+  <!-- ══ TAB: EXPENSES ══════════════════════════════════════ -->
+  <div class="tab-panel hidden" id="tab-expenses">
+
+    <!-- Kitty balance card -->
+    <div class="kitty-card" id="kittyCard">
+      <div class="kitty-card-top">
+        <div>
+          <div class="kitty-label">TRIP KITTY</div>
+          <div class="kitty-remaining" id="kittyRemaining">$0.00</div>
+          <div class="kitty-sub" id="kittySub">of $0.00 remaining</div>
+        </div>
+        <div class="kitty-icon">&#127859;</div>
+      </div>
+      <div class="kitty-bar-track">
+        <div class="kitty-bar-fill" id="kittyBarFill" style="width:100%"></div>
+      </div>
+    </div>
+
+    <!-- Action buttons -->
+    <div class="expense-actions">
+      <button class="btn-action btn-kitty" onclick="openModal('kittyModal')">
+        <span>&#127859;</span> Kitty Expense
+      </button>
+      <button class="btn-action btn-custom" onclick="openModal('customModal')">
+        <span>&#9998;</span> Custom Split
+      </button>
+    </div>
+
+    <!-- Expense log -->
+    <div class="section-label">EXPENSE LOG <span id="expenseCount" class="section-sub"></span></div>
+    <div id="expenseList"></div>
+
+  </div>
+
+  <!-- ══ TAB: SETTLE UP ═════════════════════════════════════ -->
+  <div class="tab-panel hidden" id="tab-settle">
+
+    <div class="section-label">SETTLEMENT PLAN</div>
+    <div id="settlementPanel"></div>
+
+    <div class="charts-grid">
+      <div class="card chart-card">
+        <div class="chart-title">Who Paid What</div>
+        <div class="chart-wrap">
+          <canvas id="spendChart"></canvas>
+        </div>
+      </div>
+      <div class="card chart-card">
+        <div class="chart-title">Net Balances</div>
+        <div class="chart-wrap">
+          <canvas id="balanceChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- ══ MODAL: KITTY EXPENSE ════════════════════════════════ -->
+<div class="modal-overlay hidden" id="kittyModal" onclick="if(event.target===this) closeModal('kittyModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">&#127859; Kitty Expense</span>
+      <button class="modal-close" onclick="closeModal('kittyModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-hint">Splits evenly among all members and draws from the kitty pot.</p>
+      <div class="form-group">
+        <label class="form-label">Description *</label>
+        <input class="form-input" type="text" id="ke-desc" placeholder="e.g. Fuel stop" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Amount (NZD) *</label>
+          <div class="input-prefix-wrap">
+            <span class="input-prefix">$</span>
+            <input class="form-input prefixed" type="number" id="ke-amount" min="0.01" step="0.01" placeholder="0.00" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Paid by *</label>
+          <select class="form-input" id="ke-paidby"></select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('kittyModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitKittyExpense()">Add Expense</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: CUSTOM EXPENSE ═══════════════════════════════ -->
+<div class="modal-overlay hidden" id="customModal" onclick="if(event.target===this) closeModal('customModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">&#9998; Custom Split</span>
+      <button class="modal-close" onclick="closeModal('customModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Description *</label>
+        <input class="form-input" type="text" id="ce-desc" placeholder="e.g. Accommodation" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Amount (NZD) *</label>
+          <div class="input-prefix-wrap">
+            <span class="input-prefix">$</span>
+            <input class="form-input prefixed" type="number" id="ce-amount" min="0.01" step="0.01" placeholder="0.00" oninput="updateSplitPreview()" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Paid by *</label>
+          <select class="form-input" id="ce-paidby"></select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Split among (tap to toggle)</label>
+        <div id="ce-members" class="member-toggles"></div>
+        <div class="split-preview" id="splitPreview"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('customModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitCustomExpense()">Add Expense</button>
+    </div>
+  </div>
+</div>
+
+@section Scripts {
+<script>
+// ── State ─────────────────────────────────────────────────
+let state = { tripName: 'Our Trip', kittyPerPerson: 200, totalKitty: 0, kittySpent: 0, kittyRemaining: 0, members: [], expenses: [] };
+let charts = {};
+
+// ── Init ──────────────────────────────────────────────────
+async function init() {
+  await loadState();
+  document.getElementById('tripName').value = state.tripName;
+  document.getElementById('kittyAmount').value = state.kittyPerPerson;
+  renderSetup();
+  renderExpenses();
+}
+
+async function loadState() {
+  const res = await fetch('/api/state');
+  state = await res.json();
+}
+
+// ── Tab switching ─────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.remove('hidden');
+  document.getElementById('tabBtn-' + name).classList.add('active');
+  if (name === 'settle') loadSettle();
+}
+
+// ── Setup tab ─────────────────────────────────────────────
+async function saveSetup() {
+  const tripName = document.getElementById('tripName').value.trim() || 'Our Trip';
+  const kittyPerPerson = parseFloat(document.getElementById('kittyAmount').value) || 0;
+  const res = await fetch('/api/setup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tripName, kittyPerPerson })
+  });
+  state = await res.json();
+  document.getElementById('tripNameDisplay').textContent = state.tripName;
+  renderSetup();
+  renderExpenses();
+  flash('Setup saved!');
+}
+
+function renderSetup() {
+  document.getElementById('tripNameDisplay').textContent = state.tripName;
+  document.getElementById('tripName').value = state.tripName;
+  document.getElementById('kittyAmount').value = state.kittyPerPerson;
+
+  const count = state.members.length;
+  document.getElementById('memberCount').textContent = count ? `(${count})` : '';
+  document.getElementById('memberList').innerHTML = state.members.length === 0
+    ? '<div class="empty-hint">No members yet — add some above.</div>'
+    : state.members.map(m => `
+        <div class="member-chip">
+          <span class="member-avatar">${m.name[0].toUpperCase()}</span>
+          <span class="member-name">${esc(m.name)}</span>
+          <button class="chip-remove" onclick="removeMember('${m.id}')" title="Remove">&times;</button>
+        </div>`).join('');
+
+  const total = state.kittyPerPerson * state.members.length;
+  document.getElementById('kittyTotal').innerHTML = count
+    ? `<div class="kitty-summary-row"><span>Total kitty</span><strong>$${fmt(total)}</strong></div><div class="kitty-summary-row"><span>Per person</span><strong>$${fmt(state.kittyPerPerson)}</strong></div>`
+    : '';
+}
+
+async function addMember() {
+  const inp = document.getElementById('newMemberName');
+  const name = inp.value.trim();
+  if (!name) return;
+  await fetch('/api/members', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name })
+  });
+  inp.value = '';
+  await loadState();
+  renderSetup();
+  renderExpenses();
+}
+
+async function removeMember(id) {
+  await fetch('/api/members/' + id, { method: 'DELETE' });
+  await loadState();
+  renderSetup();
+  renderExpenses();
+}
+
+// ── Expenses tab ──────────────────────────────────────────
+function renderExpenses() {
+  const remaining = state.kittyRemaining;
+  const total = state.totalKitty;
+  const pct = total > 0 ? Math.max(0, Math.min(100, (remaining / total) * 100)) : 100;
+  const isLow = pct < 25;
+
+  document.getElementById('kittyRemaining').textContent = '$' + fmt(remaining);
+  document.getElementById('kittySub').textContent = `of $${fmt(total)} remaining`;
+  document.getElementById('kittyBarFill').style.width = pct + '%';
+  document.getElementById('kittyBarFill').style.background = isLow ? 'var(--red)' : 'var(--teal)';
+
+  const count = state.expenses.length;
+  document.getElementById('expenseCount').textContent = count ? `(${count})` : '';
+
+  if (count === 0) {
+    document.getElementById('expenseList').innerHTML = '<div class="card empty-state">No expenses yet. Add a kitty or custom expense above.</div>';
+    return;
+  }
+
+  document.getElementById('expenseList').innerHTML = state.expenses.map(e => `
+    <div class="expense-row card">
+      <div class="expense-main">
+        <div class="expense-info">
+          <span class="expense-badge ${e.type === 0 ? 'badge-kitty' : 'badge-custom'}">${e.type === 0 ? '&#127859; Kitty' : '&#9998; Custom'}</span>
+          <span class="expense-desc">${esc(e.description)}</span>
+        </div>
+        <div class="expense-meta">${esc(e.paidByName)} &bull; ${e.date}</div>
+      </div>
+      <div class="expense-right">
+        <span class="expense-amount">$${fmt(e.amount)}</span>
+        <button class="icon-btn danger" onclick="deleteExpense('${e.id}')" title="Remove">&times;</button>
+      </div>
+    </div>`).join('');
+}
+
+async function deleteExpense(id) {
+  await fetch('/api/expenses/' + id, { method: 'DELETE' });
+  await loadState();
+  renderExpenses();
+}
+
+// ── Modals ────────────────────────────────────────────────
+function openModal(id) {
+  if (state.members.length === 0) { flash('Add members first in Setup.', true); return; }
+  const memberOptions = state.members.map(m => `<option value="${m.id}">${esc(m.name)}</option>`).join('');
+  if (id === 'kittyModal') {
+    document.getElementById('ke-paidby').innerHTML = memberOptions;
+    document.getElementById('ke-desc').value = '';
+    document.getElementById('ke-amount').value = '';
+  } else {
+    document.getElementById('ce-paidby').innerHTML = memberOptions;
+    document.getElementById('ce-desc').value = '';
+    document.getElementById('ce-amount').value = '';
+    renderMemberToggles();
+    updateSplitPreview();
+  }
+  document.getElementById(id).classList.remove('hidden');
+  setTimeout(() => document.getElementById(id === 'kittyModal' ? 'ke-desc' : 'ce-desc').focus(), 50);
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.add('hidden');
+}
+
+function renderMemberToggles() {
+  document.getElementById('ce-members').innerHTML = state.members.map(m => `
+    <button class="member-toggle active" data-id="${m.id}" onclick="toggleMember(this)">${esc(m.name)}</button>`).join('');
+}
+
+function toggleMember(btn) {
+  btn.classList.toggle('active');
+  updateSplitPreview();
+}
+
+function updateSplitPreview() {
+  const amount = parseFloat(document.getElementById('ce-amount').value) || 0;
+  const included = [...document.querySelectorAll('.member-toggle.active')].map(b => b.dataset.id);
+  const share = included.length > 0 ? amount / included.length : 0;
+  document.getElementById('splitPreview').textContent = included.length > 0
+    ? `$${fmt(amount)} ÷ ${included.length} = $${fmt(share)} each`
+    : 'Select at least one member';
+}
+
+async function submitKittyExpense() {
+  const desc = document.getElementById('ke-desc').value.trim();
+  const amount = parseFloat(document.getElementById('ke-amount').value);
+  const paidById = document.getElementById('ke-paidby').value;
+  if (!desc || !amount || amount <= 0) { flash('Fill in all fields', true); return; }
+  const res = await fetch('/api/expenses', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ description: desc, amount, paidById, type: 0, includedMemberIds: null })
+  });
+  if (res.ok) { state = await res.json(); renderExpenses(); closeModal('kittyModal'); }
+}
+
+async function submitCustomExpense() {
+  const desc = document.getElementById('ce-desc').value.trim();
+  const amount = parseFloat(document.getElementById('ce-amount').value);
+  const paidById = document.getElementById('ce-paidby').value;
+  const includedMemberIds = [...document.querySelectorAll('.member-toggle.active')].map(b => b.dataset.id);
+  if (!desc || !amount || amount <= 0) { flash('Fill in all fields', true); return; }
+  if (includedMemberIds.length === 0) { flash('Select at least one member to split among', true); return; }
+  const res = await fetch('/api/expenses', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ description: desc, amount, paidById, type: 1, includedMemberIds })
+  });
+  if (res.ok) { state = await res.json(); renderExpenses(); closeModal('customModal'); }
+}
+
+// ── Settle Up tab ─────────────────────────────────────────
+async function loadSettle() {
+  const res = await fetch('/api/settle');
+  const data = await res.json();
+  renderSettlement(data);
+  renderCharts(data);
+}
+
+function renderSettlement(data) {
+  if (state.members.length === 0) {
+    document.getElementById('settlementPanel').innerHTML = '<div class="card empty-state">Add members and expenses in Setup to see the settlement.</div>';
+    return;
+  }
+  if (data.isSettled || data.transactions.length === 0) {
+    document.getElementById('settlementPanel').innerHTML = `
+      <div class="settled-card">
+        <div class="settled-icon">&#10003;</div>
+        <div class="settled-text">All settled up!</div>
+        <div class="settled-sub">Everyone's square &mdash; no transfers needed.</div>
+      </div>`;
+    return;
+  }
+  document.getElementById('settlementPanel').innerHTML = data.transactions.map(t => `
+    <div class="settlement-item card">
+      <div class="settle-from">
+        <span class="member-avatar sm">${t.fromName[0].toUpperCase()}</span>
+        <strong>${esc(t.fromName)}</strong>
+      </div>
+      <div class="settle-arrow">
+        <span class="arrow-amount">$${fmt(t.amount)}</span>
+        <span class="arrow-icon">&#8594;</span>
+      </div>
+      <div class="settle-to">
+        <strong>${esc(t.toName)}</strong>
+        <span class="member-avatar sm">${t.toName[0].toUpperCase()}</span>
+      </div>
+    </div>`).join('');
+}
+
+function renderCharts(data) {
+  // Destroy old charts
+  Object.values(charts).forEach(c => c.destroy());
+  charts = {};
+
+  if (state.members.length === 0 || state.expenses.length === 0) return;
+
+  const PALETTE = ['#0D9488','#F59E0B','#3B82F6','#EC4899','#8B5CF6','#10B981','#EF4444','#F97316'];
+
+  // Chart 1: Who paid what (donut)
+  const payData = data.balances.map(b => b.totalPaid);
+  const payLabels = data.balances.map(b => b.memberName);
+  const ctx1 = document.getElementById('spendChart').getContext('2d');
+  charts.spend = new Chart(ctx1, {
+    type: 'doughnut',
+    data: {
+      labels: payLabels,
+      datasets: [{ data: payData, backgroundColor: PALETTE.slice(0, payLabels.length), borderWidth: 2, borderColor: '#fff' }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { family: 'DM Sans', size: 12 }, padding: 12 } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: $${fmt(ctx.raw)}` } }
+      }
+    }
+  });
+
+  // Chart 2: Net balances (horizontal bar)
+  const balLabels = data.balances.map(b => b.memberName);
+  const balData = data.balances.map(b => Math.round(b.netBalance * 100) / 100);
+  const barColors = balData.map(v => v >= 0 ? '#0D9488' : '#EF4444');
+  const ctx2 = document.getElementById('balanceChart').getContext('2d');
+  charts.balance = new Chart(ctx2, {
+    type: 'bar',
+    data: {
+      labels: balLabels,
+      datasets: [{
+        label: 'Net Balance (NZD)',
+        data: balData,
+        backgroundColor: barColors,
+        borderRadius: 6
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      indexAxis: 'y',
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` $${fmt(ctx.raw)}` } }
+      },
+      scales: {
+        x: {
+          grid: { color: '#E5E7EB' },
+          ticks: { font: { family: 'DM Sans' }, callback: v => '$' + v }
+        },
+        y: { ticks: { font: { family: 'DM Sans', size: 12 } } }
+      }
+    }
+  });
+}
+
+// ── Helpers ───────────────────────────────────────────────
+function fmt(n) { return Number(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+let flashTimer;
+function flash(msg, err = false) {
+  let el = document.getElementById('flash');
+  if (!el) { el = document.createElement('div'); el.id = 'flash'; document.body.appendChild(el); }
+  el.textContent = msg;
+  el.className = 'flash-msg' + (err ? ' flash-err' : '');
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => el.className = 'flash-msg hidden', 2500);
+}
+
+init();
+</script>
+}
