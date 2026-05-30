@@ -23,10 +23,13 @@ jobs:
         run: cd publish && zip -r ../app.zip . && cd ..
 
       - name: Deploy via Kudu Zip Deploy
+        env:
+          KUDU_USER: ${{ secrets.KUDU_USERNAME }}
+          KUDU_PASS: ${{ secrets.KUDU_PASSWORD }}
         run: |
           curl -X POST \
             "https://roambudget-day006.scm.azurewebsites.net/api/zipdeploy" \
-            --user "${{ secrets.KUDU_USERNAME }}:${{ secrets.KUDU_PASSWORD }}" \
+            --user "${KUDU_USER}:${KUDU_PASS}" \
             --data-binary @app.zip \
             --fail \
             --show-error
