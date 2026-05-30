@@ -19,9 +19,14 @@ jobs:
       - name: Publish
         run: dotnet publish day6_RoamBudget.csproj -c Release -o ./publish
 
-      - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: roambudget-day006
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: ./publish
+      - name: Zip publish output
+        run: cd publish && zip -r ../app.zip . && cd ..
+
+      - name: Deploy via Kudu Zip Deploy
+        run: |
+          curl -X POST \
+            "https://roambudget-day006.scm.azurewebsites.net/api/zipdeploy" \
+            --user "${{ secrets.KUDU_USERNAME }}:${{ secrets.KUDU_PASSWORD }}" \
+            --data-binary @app.zip \
+            --fail \
+            --show-error
