@@ -44,6 +44,7 @@ public class Trip
     public Dictionary<Category, decimal> CategoryBudgets { get; set; } = new();
     public List<Expense> Expenses { get; set; } = new();
     public int CoverIndex { get; set; }
+    public string? PhotoUrl { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
@@ -62,6 +63,7 @@ public record CreateTripRequest(
     string? DateRange,
     decimal TotalBudget,
     int? CoverIndex,
+    string? PhotoUrl,
     Dictionary<Category, decimal>? CategoryBudgets);
 
 public record AddExpenseRequest(
@@ -83,6 +85,7 @@ public class TripSummaryDto
     public decimal Remaining { get; set; }
     public int SpentPct { get; set; }
     public int CoverIndex { get; set; }
+    public string? PhotoUrl { get; set; }
     public int ExpenseCount { get; set; }
 }
 
@@ -96,6 +99,7 @@ public class ExpenseDto
     public string CategoryIcon { get; set; } = "";
     public string CategoryTint { get; set; } = "";
     public string Date { get; set; } = "";
+    public string? TripName { get; set; }
 }
 
 public class TripDetailDto : TripSummaryDto

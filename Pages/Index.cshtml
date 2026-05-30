@@ -22,6 +22,13 @@
   <!-- ══ TAB: TRIPS ═══════════════════════════════════════════ -->
   <div class="tab-panel active" id="tab-trips">
     <div id="tripsList"></div>
+    <div id="tripsRecentSection" class="hidden">
+      <div class="recent-expenses-header">
+        <span class="recent-expenses-label">Recent Expenses</span>
+        <button class="see-all-btn" onclick="switchTab('expenses')">See All</button>
+      </div>
+      <div class="expense-list" id="tripsRecentList"></div>
+    </div>
   </div>
 
   <!-- ══ TAB: EXPENSES ════════════════════════════════════════ -->
@@ -216,11 +223,55 @@ function switchTab(name) {
   if (name === 'profile')   loadProfile();
 }
 
+// ── Wikipedia photo fetch ──────────────────────────────────────
+async function fetchWikiPhoto(query) {
+  try {
+    const slug = encodeURIComponent(query.trim().replace(/ /g, '_'));
+    const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${slug}`, {
+      headers: { Accept: 'application/json' }
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    // Prefer the full originalimage over thumbnail for better quality cover
+    return data.originalimage?.source ?? data.thumbnail?.source ?? null;
+  } catch { return null; }
+}
+
+async function enrichCoverPhotos() {
+  for (const t of trips) {
+    if (t.photoUrl) {
+      applyPhoto(t.id, t.photoUrl);
+    } else {
+      const url = await fetchWikiPhoto(t.name);
+      if (url) applyPhoto(t.id, url);
+    }
+  }
+}
+
+function applyPhoto(tripId, url) {
+  const cover = document.getElementById('cover-' + tripId);
+  if (!cover) return;
+  const img = new Image();
+  img.onload = () => {
+    cover.style.backgroundImage = `url('${url}')`;
+    cover.style.backgroundSize  = 'cover';
+    cover.style.backgroundPosition = 'center';
+    cover.dataset.hasPhoto = '1';
+  };
+  img.src = url;
+}
+
 // ── Trips tab ──────────────────────────────────────────────────
 async function loadTrips() {
-  const res = await fetch('/api/trips');
-  trips = await res.json();
+  const [tripsRes, statsRes] = await Promise.all([
+    fetch('/api/trips'),
+    fetch('/api/stats')
+  ]);
+  trips = await tripsRes.json();
+  const stats = await statsRes.json();
   renderTrips();
+  renderTripsRecent(stats.recentExpenses);
+  enrichCoverPhotos();
 }
 
 function renderTrips() {
@@ -236,12 +287,34 @@ function renderTrips() {
   el.innerHTML = `<div class="trips-list">${trips.map(tripCard).join('')}</div>`;
 }
 
+function renderTripsRecent(expenses) {
+  const section = document.getElementById('tripsRecentSection');
+  if (!expenses || expenses.length === 0) {
+    section.classList.add('hidden');
+    return;
+  }
+  section.classList.remove('hidden');
+  document.getElementById('tripsRecentList').innerHTML =
+    expenses.map(e => `
+      <div class="expense-row">
+        <div class="expense-icon" style="background:${e.categoryTint}">${e.categoryIcon}</div>
+        <div class="expense-body">
+          <div class="expense-desc">${esc(e.description)}</div>
+          <div class="expense-date">${e.tripName ? esc(e.tripName) + ' · ' : ''}${e.date}</div>
+        </div>
+        <div class="expense-right">
+          <span class="expense-amount">$${fmt(e.amount)}</span>
+        </div>
+      </div>`).join('');
+}
+
 function tripCard(t) {
-  const pct = Math.min(t.spentPct, 100);
+  const pct  = Math.min(t.spentPct, 100);
   const over = t.spentPct > 100;
   return `
     <div class="trip-card" onclick="openTrip('${t.id}')">
-      <div class="trip-cover cover-${t.coverIndex}">
+      <div class="trip-cover cover-${t.coverIndex}" id="cover-${t.id}">
+        <div class="trip-cover-overlay"></div>
         <button class="trip-cover-delete" onclick="event.stopPropagation(); deleteTrip('${t.id}')">&times;</button>
         <div class="trip-info-panel" style="width:100%">
           <div class="trip-name">${esc(t.name)}</div>
@@ -288,7 +361,7 @@ async function submitTrip() {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       name, dateRange: document.getElementById('t-dates').value.trim() || null,
-      totalBudget: budget, coverIndex: null,
+      totalBudget: budget, coverIndex: null, photoUrl: null,
       categoryBudgets: Object.keys(catBudgets).length ? catBudgets : null
     })
   });

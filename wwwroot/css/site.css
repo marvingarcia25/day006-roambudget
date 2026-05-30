@@ -186,12 +186,21 @@ html, body {
 .trip-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
 
 .trip-cover {
-  height: 140px;
+  height: 160px;
   width: 100%;
   display: flex;
   align-items: flex-end;
   padding: 0.75rem;
   position: relative;
+  transition: background-image 0.3s ease;
+}
+
+.trip-cover-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(0,0,0,.05) 0%, rgba(0,0,0,.5) 100%);
+  z-index: 0;
+  border-radius: inherit;
 }
 
 .trip-cover-delete {
@@ -209,13 +218,18 @@ html, body {
   align-items: center;
   justify-content: center;
   transition: background 0.1s;
+  z-index: 2;
 }
 .trip-cover-delete:hover { background: rgba(239,68,68,.8); }
 
 .trip-info-panel {
-  background: var(--surface);
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   border-radius: var(--radius-sm);
   padding: 0.85rem 1rem;
+  position: relative;
+  z-index: 2;
 }
 
 .trip-name {
@@ -256,6 +270,33 @@ html, body {
   transition: width 0.4s ease;
 }
 .progress-fill.over { background: linear-gradient(90deg, var(--amber), var(--red)); }
+
+/* ── RECENT EXPENSES (Trips tab) ──────────────────────────── */
+.recent-expenses-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 1.25rem 0 0.75rem;
+}
+
+.recent-expenses-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gray);
+}
+
+.see-all-btn {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--teal);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+.see-all-btn:hover { text-decoration: underline; }
 
 /* ── COVER GRADIENTS (8 palettes) ─────────────────────────── */
 .cover-0 { background: linear-gradient(135deg, #0D9488 0%, #0369A1 100%); }
