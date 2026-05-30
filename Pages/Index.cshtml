@@ -225,16 +225,24 @@ function switchTab(name) {
 
 // ── Wikipedia photo fetch ──────────────────────────────────────
 async function fetchWikiPhoto(query) {
-  try {
-    const slug = encodeURIComponent(query.trim().replace(/ /g, '_'));
-    const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${slug}`, {
-      headers: { Accept: 'application/json' }
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    // Prefer the full originalimage over thumbnail for better quality cover
-    return data.originalimage?.source ?? data.thumbnail?.source ?? null;
-  } catch { return null; }
+  // Build a list of candidates: full name → each individual word (longest first)
+  const words = query.trim().split(/\s+/);
+  const candidates = [query, ...words].filter((v, i, a) => a.indexOf(v) === i);
+  for (const q of candidates) {
+    try {
+      const slug = encodeURIComponent(q.replace(/ /g, '_'));
+      const res = await fetch(
+        `https://en.wikipedia.org/api/rest_v1/page/summary/${slug}`,
+        { headers: { Accept: 'application/json' } }
+      );
+      if (!res.ok) continue;
+      const data = await res.json();
+      // Use thumbnail (pre-sized, fast) — originalimage can be 10 MB+
+      const url = data.thumbnail?.source;
+      if (url) return url;
+    } catch { /* try next */ }
+  }
+  return null;
 }
 
 async function enrichCoverPhotos() {
