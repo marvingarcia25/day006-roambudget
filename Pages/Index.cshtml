@@ -8,506 +8,593 @@
 
   <!-- HEADER -->
   <header class="app-header">
-    <div class="header-inner">
-      <div>
-        <div class="header-eyebrow">Day 006 &mdash; 1000 Days Challenge</div>
-        <h1 class="header-title">Roam<em>Budget</em></h1>
+    <div class="header-row">
+      <div class="header-brand">
+        <div class="brand-icon">✈️</div>
+        <span class="brand-title">Roam<em>Budget</em></span>
       </div>
-      <div class="trip-name-display" id="tripNameDisplay">Our Trip</div>
+      <button class="btn-new-trip" id="btnNewTrip" onclick="openModal('tripModal')">
+        + New Trip
+      </button>
     </div>
   </header>
 
-  <!-- TAB BAR -->
-  <nav class="tab-bar">
-    <button class="tab-btn active" id="tabBtn-setup" onclick="switchTab('setup')">
-      <span class="tab-icon">&#9881;</span> Setup
-    </button>
-    <button class="tab-btn" id="tabBtn-expenses" onclick="switchTab('expenses')">
-      <span class="tab-icon">&#128179;</span> Expenses
-    </button>
-    <button class="tab-btn" id="tabBtn-settle" onclick="switchTab('settle')">
-      <span class="tab-icon">&#9878;</span> Settle Up
-    </button>
-  </nav>
+  <!-- ══ TAB: TRIPS ═══════════════════════════════════════════ -->
+  <div class="tab-panel active" id="tab-trips">
+    <div id="tripsList"></div>
+  </div>
 
-  <!-- ══ TAB: SETUP ══════════════════════════════════════════ -->
-  <div class="tab-panel" id="tab-setup">
+  <!-- ══ TAB: EXPENSES ════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-expenses">
+    <div class="expenses-header">
+      <div class="active-trip-badge">
+        <span class="active-trip-name" id="expTrip">—</span>
+        <span class="spent-badge" id="expSpentBadge"></span>
+      </div>
+      <button class="btn-add" onclick="openModal('expenseModal')">+ Add</button>
+    </div>
+    <div class="expense-list" id="expenseList"></div>
+  </div>
 
-    <div class="section-label">TRIP DETAILS</div>
-    <div class="card">
+  <!-- ══ TAB: BUDGET ══════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-budget">
+    <select class="budget-trip-select" id="budgetTripSelect" onchange="loadBudget(this.value)"></select>
+    <div id="budgetContent"></div>
+  </div>
+
+  <!-- ══ TAB: PROFILE ═════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-profile">
+    <div class="profile-header">
+      <div class="profile-logo">✈️</div>
+      <div class="profile-name">Roam<em>Budget</em></div>
+      <div class="profile-tagline">Travel More. Spend Smarter.</div>
+    </div>
+    <div class="stats-grid" id="profileStats"></div>
+    <div class="recent-section-label">Recent Expenses</div>
+    <div class="expense-list" id="recentExpenses"></div>
+  </div>
+
+</div><!-- /.app -->
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" id="nav-trips" onclick="switchTab('trips')">
+    <span class="nav-icon">🧳</span>
+    <span class="nav-label">Trips</span>
+  </button>
+  <button class="nav-btn" id="nav-expenses" onclick="switchTab('expenses')">
+    <span class="nav-icon">💳</span>
+    <span class="nav-label">Expenses</span>
+  </button>
+  <button class="nav-btn" id="nav-budget" onclick="switchTab('budget')">
+    <span class="nav-icon">📊</span>
+    <span class="nav-label">Budget</span>
+  </button>
+  <button class="nav-btn" id="nav-profile" onclick="switchTab('profile')">
+    <span class="nav-icon">👤</span>
+    <span class="nav-label">Profile</span>
+  </button>
+</nav>
+
+<!-- ══ MODAL: NEW TRIP ══════════════════════════════════════════ -->
+<div class="modal-overlay hidden" id="tripModal" onclick="if(event.target===this) closeModal('tripModal')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <span class="modal-title">New Trip</span>
+      <button class="modal-close" onclick="closeModal('tripModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Trip Name *</label>
+        <input class="form-input" type="text" id="t-name" placeholder="e.g. Santorini Getaway" />
+      </div>
       <div class="form-row">
         <div class="form-group">
-          <label class="form-label">Trip Name</label>
-          <input class="form-input" type="text" id="tripName" placeholder="e.g. Queenstown 2026" />
+          <label class="form-label">Date Range</label>
+          <input class="form-input" type="text" id="t-dates" placeholder="e.g. 20–27 May" />
         </div>
         <div class="form-group">
-          <label class="form-label">Kitty per Person (NZD)</label>
+          <label class="form-label">Total Budget (NZD) *</label>
           <div class="input-prefix-wrap">
             <span class="input-prefix">$</span>
-            <input class="form-input prefixed" type="number" id="kittyAmount" min="0" step="10" value="200" />
+            <input class="form-input prefixed" type="number" id="t-budget" min="1" step="100" placeholder="2000" />
           </div>
         </div>
       </div>
-      <button class="btn btn-primary" onclick="saveSetup()">Save Trip Details</button>
-    </div>
-
-    <div class="section-label" style="margin-top:1.5rem">
-      MEMBERS <span id="memberCount" class="section-sub"></span>
-    </div>
-    <div class="card">
-      <div class="add-row">
-        <input class="form-input" type="text" id="newMemberName" placeholder="Member name…"
-               onkeydown="if(event.key==='Enter') addMember()" />
-        <button class="btn btn-primary" onclick="addMember()">Add</button>
+      <div class="form-group">
+        <label class="form-label">Category Budgets (optional)</label>
+        <div class="cat-budget-grid" id="catBudgetInputs"></div>
       </div>
-      <div id="memberList" class="member-list"></div>
-      <div id="kittyTotal" class="kitty-total-line"></div>
     </div>
-
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('tripModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitTrip()">Create Trip</button>
+    </div>
   </div>
-
-  <!-- ══ TAB: EXPENSES ══════════════════════════════════════ -->
-  <div class="tab-panel hidden" id="tab-expenses">
-
-    <!-- Kitty balance card -->
-    <div class="kitty-card" id="kittyCard">
-      <div class="kitty-card-top">
-        <div>
-          <div class="kitty-label">TRIP KITTY</div>
-          <div class="kitty-remaining" id="kittyRemaining">$0.00</div>
-          <div class="kitty-sub" id="kittySub">of $0.00 remaining</div>
-        </div>
-        <div class="kitty-icon">&#127859;</div>
-      </div>
-      <div class="kitty-bar-track">
-        <div class="kitty-bar-fill" id="kittyBarFill" style="width:100%"></div>
-      </div>
-    </div>
-
-    <!-- Action buttons -->
-    <div class="expense-actions">
-      <button class="btn-action btn-kitty" onclick="openModal('kittyModal')">
-        <span>&#127859;</span> Kitty Expense
-      </button>
-      <button class="btn-action btn-custom" onclick="openModal('customModal')">
-        <span>&#9998;</span> Custom Split
-      </button>
-    </div>
-
-    <!-- Expense log -->
-    <div class="section-label">EXPENSE LOG <span id="expenseCount" class="section-sub"></span></div>
-    <div id="expenseList"></div>
-
-  </div>
-
-  <!-- ══ TAB: SETTLE UP ═════════════════════════════════════ -->
-  <div class="tab-panel hidden" id="tab-settle">
-
-    <div class="section-label">SETTLEMENT PLAN</div>
-    <div id="settlementPanel"></div>
-
-    <div class="charts-grid">
-      <div class="card chart-card">
-        <div class="chart-title">Who Paid What</div>
-        <div class="chart-wrap">
-          <canvas id="spendChart"></canvas>
-        </div>
-      </div>
-      <div class="card chart-card">
-        <div class="chart-title">Net Balances</div>
-        <div class="chart-wrap">
-          <canvas id="balanceChart"></canvas>
-        </div>
-      </div>
-    </div>
-
-  </div>
-
 </div>
 
-<!-- ══ MODAL: KITTY EXPENSE ════════════════════════════════ -->
-<div class="modal-overlay hidden" id="kittyModal" onclick="if(event.target===this) closeModal('kittyModal')">
+<!-- ══ MODAL: ADD EXPENSE ════════════════════════════════════════ -->
+<div class="modal-overlay hidden" id="expenseModal" onclick="if(event.target===this) closeModal('expenseModal')">
   <div class="modal">
+    <div class="modal-handle"></div>
     <div class="modal-header">
-      <span class="modal-title">&#127859; Kitty Expense</span>
-      <button class="modal-close" onclick="closeModal('kittyModal')">&times;</button>
+      <span class="modal-title">Add Expense</span>
+      <button class="modal-close" onclick="closeModal('expenseModal')">&times;</button>
     </div>
     <div class="modal-body">
-      <p class="modal-hint">Splits evenly among all members and draws from the kitty pot.</p>
       <div class="form-group">
         <label class="form-label">Description *</label>
-        <input class="form-input" type="text" id="ke-desc" placeholder="e.g. Fuel stop" />
+        <input class="form-input" type="text" id="e-desc" placeholder="e.g. Lunch at taverna" />
       </div>
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">Amount (NZD) *</label>
           <div class="input-prefix-wrap">
             <span class="input-prefix">$</span>
-            <input class="form-input prefixed" type="number" id="ke-amount" min="0.01" step="0.01" placeholder="0.00" />
+            <input class="form-input prefixed" type="number" id="e-amount" min="0.01" step="0.01" placeholder="0.00" />
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label">Paid by *</label>
-          <select class="form-input" id="ke-paidby"></select>
+          <label class="form-label">Category *</label>
+          <select class="form-select" id="e-category">
+            <option value="0">🍽️ Food</option>
+            <option value="1">🏨 Accommodation</option>
+            <option value="2">🚗 Transport</option>
+            <option value="3">🎭 Activities</option>
+            <option value="4">🛍️ Shopping</option>
+            <option value="5">💼 Other</option>
+          </select>
         </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Date</label>
+        <input class="form-input" type="date" id="e-date" />
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn" onclick="closeModal('kittyModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="submitKittyExpense()">Add Expense</button>
+      <button class="btn" onclick="closeModal('expenseModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitExpense()">Add Expense</button>
     </div>
   </div>
 </div>
 
-<!-- ══ MODAL: CUSTOM EXPENSE ═══════════════════════════════ -->
-<div class="modal-overlay hidden" id="customModal" onclick="if(event.target===this) closeModal('customModal')">
+<!-- ══ MODAL: CATEGORY BUDGETS ══════════════════════════════════ -->
+<div class="modal-overlay hidden" id="catBudgetModal" onclick="if(event.target===this) closeModal('catBudgetModal')">
   <div class="modal">
+    <div class="modal-handle"></div>
     <div class="modal-header">
-      <span class="modal-title">&#9998; Custom Split</span>
-      <button class="modal-close" onclick="closeModal('customModal')">&times;</button>
+      <span class="modal-title">Category Budgets</span>
+      <button class="modal-close" onclick="closeModal('catBudgetModal')">&times;</button>
     </div>
     <div class="modal-body">
-      <div class="form-group">
-        <label class="form-label">Description *</label>
-        <input class="form-input" type="text" id="ce-desc" placeholder="e.g. Accommodation" />
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Amount (NZD) *</label>
-          <div class="input-prefix-wrap">
-            <span class="input-prefix">$</span>
-            <input class="form-input prefixed" type="number" id="ce-amount" min="0.01" step="0.01" placeholder="0.00" oninput="updateSplitPreview()" />
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Paid by *</label>
-          <select class="form-input" id="ce-paidby"></select>
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Split among (tap to toggle)</label>
-        <div id="ce-members" class="member-toggles"></div>
-        <div class="split-preview" id="splitPreview"></div>
-      </div>
+      <div class="cat-budget-grid" id="catBudgetEditInputs"></div>
     </div>
     <div class="modal-footer">
-      <button class="btn" onclick="closeModal('customModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="submitCustomExpense()">Add Expense</button>
+      <button class="btn" onclick="closeModal('catBudgetModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCatBudgets()">Save</button>
     </div>
   </div>
 </div>
 
 @section Scripts {
 <script>
-// ── State ─────────────────────────────────────────────────
-let state = { tripName: 'Our Trip', kittyPerPerson: 200, totalKitty: 0, kittySpent: 0, kittyRemaining: 0, members: [], expenses: [] };
-let charts = {};
+// ── Constants ──────────────────────────────────────────────────
+const CATEGORIES = [
+  { value: 0, name: 'Food',          icon: '🍽️', tint: '#FFF4E6' },
+  { value: 1, name: 'Accommodation', icon: '🏨', tint: '#E6F4FF' },
+  { value: 2, name: 'Transport',     icon: '🚗', tint: '#EFF6FF' },
+  { value: 3, name: 'Activities',    icon: '🎭', tint: '#F4F0FF' },
+  { value: 4, name: 'Shopping',      icon: '🛍️', tint: '#FFF0F9' },
+  { value: 5, name: 'Other',         icon: '💼', tint: '#F0F4F8' }
+];
 
-// ── Init ──────────────────────────────────────────────────
+// ── State ──────────────────────────────────────────────────────
+let trips = [];
+let activeTrip = null;
+let donutChart = null;
+let activeBudgetTripId = null;
+
+// ── Init ───────────────────────────────────────────────────────
 async function init() {
-  await loadState();
-  document.getElementById('tripName').value = state.tripName;
-  document.getElementById('kittyAmount').value = state.kittyPerPerson;
-  renderSetup();
-  renderExpenses();
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById('e-date').value = today;
+  buildCatBudgetInputs('catBudgetInputs');
+  await loadTrips();
+  await loadProfile();
 }
 
-async function loadState() {
-  const res = await fetch('/api/state');
-  state = await res.json();
-}
-
-// ── Tab switching ─────────────────────────────────────────
+// ── Navigation ─────────────────────────────────────────────────
 function switchTab(name) {
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('tab-' + name).classList.remove('hidden');
-  document.getElementById('tabBtn-' + name).classList.add('active');
-  if (name === 'settle') loadSettle();
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.getElementById('nav-' + name).classList.add('active');
+
+  if (name === 'expenses')  loadExpenses();
+  if (name === 'budget')    initBudgetTab();
+  if (name === 'profile')   loadProfile();
 }
 
-// ── Setup tab ─────────────────────────────────────────────
-async function saveSetup() {
-  const tripName = document.getElementById('tripName').value.trim() || 'Our Trip';
-  const kittyPerPerson = parseFloat(document.getElementById('kittyAmount').value) || 0;
-  const res = await fetch('/api/setup', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tripName, kittyPerPerson })
+// ── Trips tab ──────────────────────────────────────────────────
+async function loadTrips() {
+  const res = await fetch('/api/trips');
+  trips = await res.json();
+  renderTrips();
+}
+
+function renderTrips() {
+  const el = document.getElementById('tripsList');
+  if (trips.length === 0) {
+    el.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">🗺️</div>
+      <div class="empty-title">No trips yet</div>
+      <div class="empty-sub">Tap <strong>+ New Trip</strong> to plan your first adventure.</div>
+    </div>`;
+    return;
+  }
+  el.innerHTML = `<div class="trips-list">${trips.map(tripCard).join('')}</div>`;
+}
+
+function tripCard(t) {
+  const pct = Math.min(t.spentPct, 100);
+  const over = t.spentPct > 100;
+  return `
+    <div class="trip-card" onclick="openTrip('${t.id}')">
+      <div class="trip-cover cover-${t.coverIndex}">
+        <button class="trip-cover-delete" onclick="event.stopPropagation(); deleteTrip('${t.id}')">&times;</button>
+        <div class="trip-info-panel" style="width:100%">
+          <div class="trip-name">${esc(t.name)}</div>
+          ${t.dateRange ? `<div class="trip-dates">${esc(t.dateRange)}</div>` : ''}
+          <div class="trip-progress-row">
+            <span class="trip-spent-label">$${fmt(t.totalSpent)} of $${fmt(t.totalBudget)}</span>
+            <span class="trip-pct-label">${t.spentPct}%</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill ${over ? 'over' : ''}" style="width:${pct}%"></div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function openTrip(id) {
+  activeTrip = trips.find(t => t.id === id) || null;
+  activeBudgetTripId = id;
+  switchTab('expenses');
+}
+
+async function deleteTrip(id) {
+  if (!confirm('Delete this trip and all its expenses?')) return;
+  await fetch('/api/trips/' + id, { method: 'DELETE' });
+  await loadTrips();
+  if (activeTrip?.id === id) { activeTrip = null; }
+  flash('Trip deleted');
+}
+
+async function submitTrip() {
+  const name = document.getElementById('t-name').value.trim();
+  const budget = parseFloat(document.getElementById('t-budget').value);
+  if (!name) { flash('Trip name required', true); return; }
+  if (!budget || budget <= 0) { flash('Budget required', true); return; }
+
+  const catBudgets = {};
+  CATEGORIES.forEach(c => {
+    const v = parseFloat(document.getElementById('cb-' + c.value)?.value || '0');
+    if (v > 0) catBudgets[c.value] = v;
   });
-  state = await res.json();
-  document.getElementById('tripNameDisplay').textContent = state.tripName;
-  renderSetup();
-  renderExpenses();
-  flash('Setup saved!');
-}
 
-function renderSetup() {
-  document.getElementById('tripNameDisplay').textContent = state.tripName;
-  document.getElementById('tripName').value = state.tripName;
-  document.getElementById('kittyAmount').value = state.kittyPerPerson;
-
-  const count = state.members.length;
-  document.getElementById('memberCount').textContent = count ? `(${count})` : '';
-  document.getElementById('memberList').innerHTML = state.members.length === 0
-    ? '<div class="empty-hint">No members yet — add some above.</div>'
-    : state.members.map(m => `
-        <div class="member-chip">
-          <span class="member-avatar">${m.name[0].toUpperCase()}</span>
-          <span class="member-name">${esc(m.name)}</span>
-          <button class="chip-remove" onclick="removeMember('${m.id}')" title="Remove">&times;</button>
-        </div>`).join('');
-
-  const total = state.kittyPerPerson * state.members.length;
-  document.getElementById('kittyTotal').innerHTML = count
-    ? `<div class="kitty-summary-row"><span>Total kitty</span><strong>$${fmt(total)}</strong></div><div class="kitty-summary-row"><span>Per person</span><strong>$${fmt(state.kittyPerPerson)}</strong></div>`
-    : '';
-}
-
-async function addMember() {
-  const inp = document.getElementById('newMemberName');
-  const name = inp.value.trim();
-  if (!name) return;
-  await fetch('/api/members', {
+  const res = await fetch('/api/trips', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name })
+    body: JSON.stringify({
+      name, dateRange: document.getElementById('t-dates').value.trim() || null,
+      totalBudget: budget, coverIndex: null,
+      categoryBudgets: Object.keys(catBudgets).length ? catBudgets : null
+    })
   });
-  inp.value = '';
-  await loadState();
-  renderSetup();
-  renderExpenses();
+  if (!res.ok) { flash('Error creating trip', true); return; }
+  const trip = await res.json();
+  closeModal('tripModal');
+  document.getElementById('t-name').value = '';
+  document.getElementById('t-dates').value = '';
+  document.getElementById('t-budget').value = '';
+  CATEGORIES.forEach(c => { const el = document.getElementById('cb-' + c.value); if (el) el.value = ''; });
+  await loadTrips();
+  activeTrip = trips.find(t => t.id === trip.id) || null;
+  flash('Trip created!');
 }
 
-async function removeMember(id) {
-  await fetch('/api/members/' + id, { method: 'DELETE' });
-  await loadState();
-  renderSetup();
-  renderExpenses();
+// ── Expenses tab ───────────────────────────────────────────────
+async function loadExpenses() {
+  if (!activeTrip) {
+    document.getElementById('expTrip').textContent = '—';
+    document.getElementById('expSpentBadge').textContent = '';
+    document.getElementById('expenseList').innerHTML = `<div class="empty-state">
+      <div class="empty-icon">🧳</div>
+      <div class="empty-title">No trip selected</div>
+      <div class="empty-sub">Go to <strong>Trips</strong> and tap a trip to view its expenses.</div>
+    </div>`;
+    return;
+  }
+  const res = await fetch('/api/trips/' + activeTrip.id + '/expenses');
+  const detail = await res.json();
+  activeTrip = { ...activeTrip, ...detail };
+  renderExpenses(detail);
 }
 
-// ── Expenses tab ──────────────────────────────────────────
-function renderExpenses() {
-  const remaining = state.kittyRemaining;
-  const total = state.totalKitty;
-  const pct = total > 0 ? Math.max(0, Math.min(100, (remaining / total) * 100)) : 100;
-  const isLow = pct < 25;
+function renderExpenses(detail) {
+  document.getElementById('expTrip').textContent = detail.name;
+  document.getElementById('expSpentBadge').textContent = '$' + fmt(detail.totalSpent) + ' spent';
 
-  document.getElementById('kittyRemaining').textContent = '$' + fmt(remaining);
-  document.getElementById('kittySub').textContent = `of $${fmt(total)} remaining`;
-  document.getElementById('kittyBarFill').style.width = pct + '%';
-  document.getElementById('kittyBarFill').style.background = isLow ? 'var(--red)' : 'var(--teal)';
-
-  const count = state.expenses.length;
-  document.getElementById('expenseCount').textContent = count ? `(${count})` : '';
-
-  if (count === 0) {
-    document.getElementById('expenseList').innerHTML = '<div class="card empty-state">No expenses yet. Add a kitty or custom expense above.</div>';
+  if (detail.expenses.length === 0) {
+    document.getElementById('expenseList').innerHTML = `<div class="empty-state">
+      <div class="empty-icon">💳</div>
+      <div class="empty-title">No expenses yet</div>
+      <div class="empty-sub">Tap <strong>+ Add</strong> to record your first expense.</div>
+    </div>`;
     return;
   }
 
-  document.getElementById('expenseList').innerHTML = state.expenses.map(e => `
-    <div class="expense-row card">
-      <div class="expense-main">
-        <div class="expense-info">
-          <span class="expense-badge ${e.type === 0 ? 'badge-kitty' : 'badge-custom'}">${e.type === 0 ? '&#127859; Kitty' : '&#9998; Custom'}</span>
-          <span class="expense-desc">${esc(e.description)}</span>
-        </div>
-        <div class="expense-meta">${esc(e.paidByName)} &bull; ${e.date}</div>
+  document.getElementById('expenseList').innerHTML =
+    detail.expenses.map(e => expenseRow(e, detail.id)).join('');
+}
+
+function expenseRow(e, tripId) {
+  return `
+    <div class="expense-row">
+      <div class="expense-icon" style="background:${e.categoryTint}">${e.categoryIcon}</div>
+      <div class="expense-body">
+        <div class="expense-desc">${esc(e.description)}</div>
+        <div class="expense-date">${e.date}</div>
       </div>
       <div class="expense-right">
         <span class="expense-amount">$${fmt(e.amount)}</span>
-        <button class="icon-btn danger" onclick="deleteExpense('${e.id}')" title="Remove">&times;</button>
+        <button class="icon-btn" onclick="deleteExpense('${tripId}', '${e.id}')">&times;</button>
       </div>
-    </div>`).join('');
+    </div>`;
 }
 
-async function deleteExpense(id) {
-  await fetch('/api/expenses/' + id, { method: 'DELETE' });
-  await loadState();
-  renderExpenses();
+async function deleteExpense(tripId, expId) {
+  const res = await fetch(`/api/trips/${tripId}/expenses/${expId}`, { method: 'DELETE' });
+  const detail = await res.json();
+  activeTrip = { ...activeTrip, ...detail };
+  renderExpenses(detail);
 }
 
-// ── Modals ────────────────────────────────────────────────
+async function submitExpense() {
+  if (!activeTrip) { flash('Select a trip first', true); return; }
+  const desc = document.getElementById('e-desc').value.trim();
+  const amount = parseFloat(document.getElementById('e-amount').value);
+  const category = parseInt(document.getElementById('e-category').value);
+  const date = document.getElementById('e-date').value;
+  if (!desc || !amount || amount <= 0) { flash('Fill in all fields', true); return; }
+
+  const res = await fetch('/api/trips/' + activeTrip.id + '/expenses', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ description: desc, amount, category, date: date ? date + 'T00:00:00' : null })
+  });
+  if (!res.ok) { flash('Error adding expense', true); return; }
+  const detail = await res.json();
+  activeTrip = { ...activeTrip, ...detail };
+  renderExpenses(detail);
+  closeModal('expenseModal');
+  document.getElementById('e-desc').value = '';
+  document.getElementById('e-amount').value = '';
+}
+
+// ── Budget tab ─────────────────────────────────────────────────
+function initBudgetTab() {
+  const sel = document.getElementById('budgetTripSelect');
+  sel.innerHTML = trips.length === 0
+    ? '<option>— No trips yet —</option>'
+    : trips.map(t => `<option value="${t.id}" ${t.id === (activeBudgetTripId || trips[0]?.id) ? 'selected' : ''}>${esc(t.name)}</option>`).join('');
+
+  const id = activeBudgetTripId || trips[0]?.id;
+  if (id) loadBudget(id);
+  else document.getElementById('budgetContent').innerHTML = `<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-title">No trips yet</div></div>`;
+}
+
+async function loadBudget(tripId) {
+  activeBudgetTripId = tripId;
+  const res = await fetch('/api/trips/' + tripId + '/budget');
+  if (!res.ok) return;
+  const b = await res.json();
+  renderBudget(b);
+}
+
+function renderBudget(b) {
+  const pct = Math.min(b.spentPct, 100);
+  const over = b.spentPct > 100;
+
+  document.getElementById('budgetContent').innerHTML = `
+    <div style="text-align:center;margin-bottom:.5rem">
+      <div class="budget-total-label">Total Budget</div>
+      <div class="budget-total-amount">$${fmt(b.totalBudget)}</div>
+    </div>
+    <div class="donut-wrap">
+      <canvas id="donutCanvas" width="180" height="180"></canvas>
+      <div class="donut-center">
+        <div class="donut-pct">${b.spentPct}%</div>
+        <div class="donut-label">Spent</div>
+      </div>
+    </div>
+    <div class="budget-stats-row">
+      <div class="stat-col">
+        <span class="stat-label">Spent</span>
+        <span class="stat-value">$${fmt(b.totalSpent)}</span>
+      </div>
+      <div class="stat-col">
+        <span class="stat-label">Remaining</span>
+        <span class="stat-value">$${fmt(b.remaining)}</span>
+      </div>
+    </div>
+    <div class="categories-heading">
+      Categories
+      <button class="cat-budgets-btn" onclick="openCatBudgets('${b.tripId}')">Set Budgets</button>
+    </div>
+    <div class="category-rows">
+      ${b.categories.filter(c => c.spent > 0 || c.budget > 0).map(catRow).join('')
+        || '<div style="color:var(--gray);font-size:.8rem;text-align:center;padding:1rem 0">No expenses yet</div>'}
+    </div>`;
+
+  renderDonut(b);
+}
+
+function catRow(c) {
+  const hasBudget = c.budget > 0;
+  const pct = hasBudget ? Math.min(c.spentPct, 100) : 0;
+  const over = hasBudget && c.spentPct > 100;
+  const spentWidth = hasBudget ? pct
+    : 0;
+  return `
+    <div class="category-row">
+      <div class="cat-icon" style="background:${c.categoryTint}">${c.categoryIcon}</div>
+      <div class="cat-body">
+        <div class="cat-name-row">
+          <span class="cat-name">${c.categoryName}</span>
+          <span class="cat-amounts">${hasBudget ? `$${fmt(c.spent)} / $${fmt(c.budget)}` : `$${fmt(c.spent)}`}</span>
+        </div>
+        <div class="cat-bar-row">
+          <div class="cat-track">
+            <div class="cat-fill ${over ? 'over' : ''}" style="width:${spentWidth}%"></div>
+          </div>
+          <span class="cat-pct">${hasBudget ? c.spentPct + '%' : ''}</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderDonut(b) {
+  if (donutChart) { donutChart.destroy(); donutChart = null; }
+  const canvas = document.getElementById('donutCanvas');
+  if (!canvas) return;
+  const spent = b.totalSpent;
+  const remaining = Math.max(0, b.totalBudget - spent);
+  const over = spent > b.totalBudget;
+  donutChart = new Chart(canvas.getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      datasets: [{
+        data: over ? [spent, 0] : [spent, remaining],
+        backgroundColor: over ? ['#EF4444', '#EAF0F6'] : ['#14A89E', '#EAF0F6'],
+        borderWidth: 0,
+        borderRadius: 4
+      }]
+    },
+    options: {
+      cutout: '72%',
+      responsive: false,
+      plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      animation: { duration: 600, easing: 'easeInOutQuart' }
+    }
+  });
+}
+
+// ── Category budgets modal ─────────────────────────────────────
+let editingBudgetTripId = null;
+
+async function openCatBudgets(tripId) {
+  editingBudgetTripId = tripId;
+  const res = await fetch('/api/trips/' + tripId + '/budget');
+  const b = await res.json();
+  buildCatBudgetInputs('catBudgetEditInputs', b.categories);
+  openModal('catBudgetModal');
+}
+
+function buildCatBudgetInputs(containerId, existingCats) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = CATEGORIES.map(c => {
+    const existing = existingCats?.find(ec => ec.category === c.value);
+    return `
+      <div class="cat-budget-row">
+        <span class="cat-budget-icon">${c.icon}</span>
+        <input class="cat-budget-input" type="number" id="${containerId === 'catBudgetEditInputs' ? 'cbe' : 'cb'}-${c.value}"
+          min="0" step="50" placeholder="${c.name}"
+          value="${existing?.budget > 0 ? existing.budget : ''}" />
+      </div>`;
+  }).join('');
+}
+
+async function saveCatBudgets() {
+  const budgets = {};
+  CATEGORIES.forEach(c => {
+    const v = parseFloat(document.getElementById('cbe-' + c.value)?.value || '0');
+    if (v > 0) budgets[c.value] = v;
+  });
+  await fetch('/api/trips/' + editingBudgetTripId + '/category-budgets', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ budgets })
+  });
+  closeModal('catBudgetModal');
+  loadBudget(editingBudgetTripId);
+  flash('Budgets saved!');
+}
+
+// ── Profile tab ────────────────────────────────────────────────
+async function loadProfile() {
+  const res = await fetch('/api/stats');
+  const s = await res.json();
+  document.getElementById('profileStats').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-card-value">${s.tripCount}</div>
+      <div class="stat-card-label">Trips</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-value">${s.expenseCount}</div>
+      <div class="stat-card-label">Expenses</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-card-value">$${fmtK(s.totalSpent)}</div>
+      <div class="stat-card-label">Spent</div>
+    </div>`;
+
+  document.getElementById('recentExpenses').innerHTML = s.recentExpenses.length === 0
+    ? `<div class="empty-state"><div class="empty-sub">No expenses yet.</div></div>`
+    : s.recentExpenses.map(e => `
+        <div class="expense-row">
+          <div class="expense-icon" style="background:${e.categoryTint}">${e.categoryIcon}</div>
+          <div class="expense-body">
+            <div class="expense-desc">${esc(e.description)}</div>
+            <div class="expense-date">${e.date}</div>
+          </div>
+          <div class="expense-right">
+            <span class="expense-amount">$${fmt(e.amount)}</span>
+          </div>
+        </div>`).join('');
+}
+
+// ── Modals ─────────────────────────────────────────────────────
 function openModal(id) {
-  if (state.members.length === 0) { flash('Add members first in Setup.', true); return; }
-  const memberOptions = state.members.map(m => `<option value="${m.id}">${esc(m.name)}</option>`).join('');
-  if (id === 'kittyModal') {
-    document.getElementById('ke-paidby').innerHTML = memberOptions;
-    document.getElementById('ke-desc').value = '';
-    document.getElementById('ke-amount').value = '';
-  } else {
-    document.getElementById('ce-paidby').innerHTML = memberOptions;
-    document.getElementById('ce-desc').value = '';
-    document.getElementById('ce-amount').value = '';
-    renderMemberToggles();
-    updateSplitPreview();
-  }
   document.getElementById(id).classList.remove('hidden');
-  setTimeout(() => document.getElementById(id === 'kittyModal' ? 'ke-desc' : 'ce-desc').focus(), 50);
+  const firstInput = document.querySelector(`#${id} input, #${id} select`);
+  setTimeout(() => firstInput?.focus(), 80);
 }
 
 function closeModal(id) {
   document.getElementById(id).classList.add('hidden');
 }
 
-function renderMemberToggles() {
-  document.getElementById('ce-members').innerHTML = state.members.map(m => `
-    <button class="member-toggle active" data-id="${m.id}" onclick="toggleMember(this)">${esc(m.name)}</button>`).join('');
+// ── Helpers ────────────────────────────────────────────────────
+function fmt(n)  { return Number(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+function fmtK(n) {
+  if (n >= 1000) return '$' + (n/1000).toFixed(1) + 'k';
+  return fmt(n);
+}
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function toggleMember(btn) {
-  btn.classList.toggle('active');
-  updateSplitPreview();
-}
-
-function updateSplitPreview() {
-  const amount = parseFloat(document.getElementById('ce-amount').value) || 0;
-  const included = [...document.querySelectorAll('.member-toggle.active')].map(b => b.dataset.id);
-  const share = included.length > 0 ? amount / included.length : 0;
-  document.getElementById('splitPreview').textContent = included.length > 0
-    ? `$${fmt(amount)} ÷ ${included.length} = $${fmt(share)} each`
-    : 'Select at least one member';
-}
-
-async function submitKittyExpense() {
-  const desc = document.getElementById('ke-desc').value.trim();
-  const amount = parseFloat(document.getElementById('ke-amount').value);
-  const paidById = document.getElementById('ke-paidby').value;
-  if (!desc || !amount || amount <= 0) { flash('Fill in all fields', true); return; }
-  const res = await fetch('/api/expenses', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ description: desc, amount, paidById, type: 0, includedMemberIds: null })
-  });
-  if (res.ok) { state = await res.json(); renderExpenses(); closeModal('kittyModal'); }
-}
-
-async function submitCustomExpense() {
-  const desc = document.getElementById('ce-desc').value.trim();
-  const amount = parseFloat(document.getElementById('ce-amount').value);
-  const paidById = document.getElementById('ce-paidby').value;
-  const includedMemberIds = [...document.querySelectorAll('.member-toggle.active')].map(b => b.dataset.id);
-  if (!desc || !amount || amount <= 0) { flash('Fill in all fields', true); return; }
-  if (includedMemberIds.length === 0) { flash('Select at least one member to split among', true); return; }
-  const res = await fetch('/api/expenses', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ description: desc, amount, paidById, type: 1, includedMemberIds })
-  });
-  if (res.ok) { state = await res.json(); renderExpenses(); closeModal('customModal'); }
-}
-
-// ── Settle Up tab ─────────────────────────────────────────
-async function loadSettle() {
-  const res = await fetch('/api/settle');
-  const data = await res.json();
-  renderSettlement(data);
-  renderCharts(data);
-}
-
-function renderSettlement(data) {
-  if (state.members.length === 0) {
-    document.getElementById('settlementPanel').innerHTML = '<div class="card empty-state">Add members and expenses in Setup to see the settlement.</div>';
-    return;
-  }
-  if (data.isSettled || data.transactions.length === 0) {
-    document.getElementById('settlementPanel').innerHTML = `
-      <div class="settled-card">
-        <div class="settled-icon">&#10003;</div>
-        <div class="settled-text">All settled up!</div>
-        <div class="settled-sub">Everyone's square &mdash; no transfers needed.</div>
-      </div>`;
-    return;
-  }
-  document.getElementById('settlementPanel').innerHTML = data.transactions.map(t => `
-    <div class="settlement-item card">
-      <div class="settle-from">
-        <span class="member-avatar sm">${t.fromName[0].toUpperCase()}</span>
-        <strong>${esc(t.fromName)}</strong>
-      </div>
-      <div class="settle-arrow">
-        <span class="arrow-amount">$${fmt(t.amount)}</span>
-        <span class="arrow-icon">&#8594;</span>
-      </div>
-      <div class="settle-to">
-        <strong>${esc(t.toName)}</strong>
-        <span class="member-avatar sm">${t.toName[0].toUpperCase()}</span>
-      </div>
-    </div>`).join('');
-}
-
-function renderCharts(data) {
-  // Destroy old charts
-  Object.values(charts).forEach(c => c.destroy());
-  charts = {};
-
-  if (state.members.length === 0 || state.expenses.length === 0) return;
-
-  const PALETTE = ['#0D9488','#F59E0B','#3B82F6','#EC4899','#8B5CF6','#10B981','#EF4444','#F97316'];
-
-  // Chart 1: Who paid what (donut)
-  const payData = data.balances.map(b => b.totalPaid);
-  const payLabels = data.balances.map(b => b.memberName);
-  const ctx1 = document.getElementById('spendChart').getContext('2d');
-  charts.spend = new Chart(ctx1, {
-    type: 'doughnut',
-    data: {
-      labels: payLabels,
-      datasets: [{ data: payData, backgroundColor: PALETTE.slice(0, payLabels.length), borderWidth: 2, borderColor: '#fff' }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: true,
-      plugins: {
-        legend: { position: 'bottom', labels: { font: { family: 'DM Sans', size: 12 }, padding: 12 } },
-        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: $${fmt(ctx.raw)}` } }
-      }
-    }
-  });
-
-  // Chart 2: Net balances (horizontal bar)
-  const balLabels = data.balances.map(b => b.memberName);
-  const balData = data.balances.map(b => Math.round(b.netBalance * 100) / 100);
-  const barColors = balData.map(v => v >= 0 ? '#0D9488' : '#EF4444');
-  const ctx2 = document.getElementById('balanceChart').getContext('2d');
-  charts.balance = new Chart(ctx2, {
-    type: 'bar',
-    data: {
-      labels: balLabels,
-      datasets: [{
-        label: 'Net Balance (NZD)',
-        data: balData,
-        backgroundColor: barColors,
-        borderRadius: 6
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: true,
-      indexAxis: 'y',
-      plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { label: ctx => ` $${fmt(ctx.raw)}` } }
-      },
-      scales: {
-        x: {
-          grid: { color: '#E5E7EB' },
-          ticks: { font: { family: 'DM Sans' }, callback: v => '$' + v }
-        },
-        y: { ticks: { font: { family: 'DM Sans', size: 12 } } }
-      }
-    }
-  });
-}
-
-// ── Helpers ───────────────────────────────────────────────
-function fmt(n) { return Number(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
-function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-
-let flashTimer;
+let _flashTimer;
 function flash(msg, err = false) {
-  let el = document.getElementById('flash');
-  if (!el) { el = document.createElement('div'); el.id = 'flash'; document.body.appendChild(el); }
+  let el = document.getElementById('__flash');
+  if (!el) { el = document.createElement('div'); el.id = '__flash'; document.body.appendChild(el); }
   el.textContent = msg;
   el.className = 'flash-msg' + (err ? ' flash-err' : '');
-  clearTimeout(flashTimer);
-  flashTimer = setTimeout(() => el.className = 'flash-msg hidden', 2500);
+  clearTimeout(_flashTimer);
+  _flashTimer = setTimeout(() => el.classList.add('hidden'), 2500);
 }
 
 init();

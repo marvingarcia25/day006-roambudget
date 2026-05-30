@@ -4,164 +4,186 @@ namespace RoamBudget.Services;
 
 public class TripService
 {
-    private readonly Trip _trip = new();
+    private readonly List<Trip> _trips = new();
+    private int _nextCoverIndex;
     private readonly object _lock = new();
 
-    public void UpdateSetup(string name, decimal kittyPerPerson)
+    // ── Trips ────────────────────────────────────────────────
+    public List<TripSummaryDto> ListTrips()
+    {
+        lock (_lock)
+            return _trips.OrderByDescending(t => t.CreatedAt).Select(Summary).ToList();
+    }
+
+    public TripSummaryDto CreateTrip(CreateTripRequest req)
+    {
+        var trip = new Trip
+        {
+            Name = req.Name.Trim(),
+            DateRange = req.DateRange?.Trim() ?? "",
+            TotalBudget = Math.Max(0, req.TotalBudget),
+            CoverIndex = req.CoverIndex ?? (_nextCoverIndex++ % 8),
+            CategoryBudgets = req.CategoryBudgets ?? new()
+        };
+        lock (_lock) _trips.Add(trip);
+        return Summary(trip);
+    }
+
+    public bool DeleteTrip(Guid id)
+    {
+        lock (_lock) return _trips.RemoveAll(t => t.Id == id) > 0;
+    }
+
+    // ── Expenses ─────────────────────────────────────────────
+    public TripDetailDto? GetTripDetail(Guid tripId)
     {
         lock (_lock)
         {
-            _trip.Name = name;
-            _trip.KittyPerPerson = Math.Max(0, kittyPerPerson);
+            var trip = _trips.FirstOrDefault(t => t.Id == tripId);
+            return trip is null ? null : Detail(trip);
         }
     }
 
-    public Member AddMember(string name)
-    {
-        var member = new Member { Name = name };
-        lock (_lock) _trip.Members.Add(member);
-        return member;
-    }
-
-    public void RemoveMember(Guid id)
-    {
-        lock (_lock) _trip.Members.RemoveAll(m => m.Id == id);
-    }
-
-    public void AddExpense(AddExpenseRequest req)
+    public TripDetailDto? AddExpense(Guid tripId, AddExpenseRequest req)
     {
         lock (_lock)
         {
-            var included = req.IncludedMemberIds?.Count > 0
-                ? _trip.Members.Where(m => req.IncludedMemberIds.Contains(m.Id)).ToList()
-                : _trip.Members.ToList();
-
-            if (included.Count == 0) included = _trip.Members.ToList();
-
-            var shareAmount = included.Count > 0 ? Math.Round(req.Amount / included.Count, 2) : req.Amount;
-            var splits = included.Select((m, i) => new Split
+            var trip = _trips.FirstOrDefault(t => t.Id == tripId);
+            if (trip is null) return null;
+            trip.Expenses.Add(new Expense
             {
-                MemberId = m.Id,
-                Amount = i == 0 ? req.Amount - shareAmount * (included.Count - 1) : shareAmount
-            }).ToList();
-
-            _trip.Expenses.Add(new Expense
-            {
-                Description = req.Description ?? "",
-                Amount = req.Amount,
-                PaidById = req.PaidById,
-                Type = req.Type,
-                Splits = splits
+                Description = req.Description.Trim(),
+                Amount = Math.Round(req.Amount, 2),
+                Category = req.Category,
+                Date = req.Date?.ToUniversalTime() ?? DateTime.UtcNow
             });
+            return Detail(trip);
         }
     }
 
-    public void RemoveExpense(Guid id)
-    {
-        lock (_lock) _trip.Expenses.RemoveAll(e => e.Id == id);
-    }
-
-    public TripState GetState()
+    public TripDetailDto? DeleteExpense(Guid tripId, Guid expenseId)
     {
         lock (_lock)
         {
-            var kittySpent = _trip.Expenses
-                .Where(e => e.Type == ExpenseType.Kitty)
-                .Sum(e => e.Amount);
-
-            return new TripState
-            {
-                TripName = _trip.Name,
-                KittyPerPerson = _trip.KittyPerPerson,
-                TotalKitty = _trip.KittyPerPerson * _trip.Members.Count,
-                KittySpent = kittySpent,
-                KittyRemaining = _trip.KittyPerPerson * _trip.Members.Count - kittySpent,
-                Members = _trip.Members.ToList(),
-                Expenses = _trip.Expenses
-                    .OrderByDescending(e => e.Date)
-                    .Select(e => new ExpenseDto
-                    {
-                        Id = e.Id,
-                        Description = e.Description,
-                        Amount = e.Amount,
-                        PaidByName = _trip.Members.FirstOrDefault(m => m.Id == e.PaidById)?.Name ?? "?",
-                        Type = e.Type,
-                        Date = e.Date.ToString("dd MMM"),
-                        Splits = e.Splits.Select(s => new SplitDto
-                        {
-                            MemberName = _trip.Members.FirstOrDefault(m => m.Id == s.MemberId)?.Name ?? "?",
-                            Amount = s.Amount
-                        }).ToList()
-                    }).ToList()
-            };
+            var trip = _trips.FirstOrDefault(t => t.Id == tripId);
+            if (trip is null) return null;
+            trip.Expenses.RemoveAll(e => e.Id == expenseId);
+            return Detail(trip);
         }
     }
 
-    public SettlementResult GetSettlement()
+    // ── Budget ───────────────────────────────────────────────
+    public BudgetOverviewDto? GetBudget(Guid tripId)
     {
         lock (_lock)
         {
-            var balances = _trip.Members.ToDictionary(m => m.Id, _ => 0m);
-            var totalPaid = _trip.Members.ToDictionary(m => m.Id, _ => 0m);
-            var totalOwed = _trip.Members.ToDictionary(m => m.Id, _ => 0m);
+            var trip = _trips.FirstOrDefault(t => t.Id == tripId);
+            if (trip is null) return null;
 
-            foreach (var expense in _trip.Expenses)
-            {
-                if (balances.ContainsKey(expense.PaidById))
-                {
-                    balances[expense.PaidById] += expense.Amount;
-                    totalPaid[expense.PaidById] += expense.Amount;
-                }
-                foreach (var split in expense.Splits)
-                {
-                    if (balances.ContainsKey(split.MemberId))
-                    {
-                        balances[split.MemberId] -= split.Amount;
-                        totalOwed[split.MemberId] += split.Amount;
-                    }
-                }
-            }
+            var totalSpent = trip.Expenses.Sum(e => e.Amount);
+            var remaining = trip.TotalBudget - totalSpent;
+            var spentPct = trip.TotalBudget > 0
+                ? (int)Math.Round(totalSpent / trip.TotalBudget * 100)
+                : 0;
 
-            var summaries = _trip.Members.Select(m => new BalanceSummary
+            var categories = Enum.GetValues<Category>().Select(cat =>
             {
-                MemberName = m.Name,
-                TotalPaid = totalPaid[m.Id],
-                TotalOwed = totalOwed[m.Id],
-                NetBalance = balances[m.Id]
+                var spent = trip.Expenses.Where(e => e.Category == cat).Sum(e => e.Amount);
+                trip.CategoryBudgets.TryGetValue(cat, out var budget);
+                var catRemaining = budget > 0 ? budget - spent : 0;
+                var catPct = budget > 0 ? (int)Math.Round(spent / budget * 100) : 0;
+                return new CategoryBudgetDto
+                {
+                    Category = cat,
+                    CategoryName = CategoryMeta.Name(cat),
+                    CategoryIcon = CategoryMeta.Icon(cat),
+                    CategoryTint = CategoryMeta.Tint(cat),
+                    Budget = budget,
+                    Spent = spent,
+                    Remaining = catRemaining,
+                    SpentPct = catPct
+                };
             }).ToList();
 
-            // Debt minimization (greedy creditor/debtor matching)
-            var credits = balances.Where(kv => kv.Value > 0.005m)
-                .Select(kv => (Id: kv.Key, Amt: kv.Value)).OrderByDescending(x => x.Amt).ToList();
-            var debts = balances.Where(kv => kv.Value < -0.005m)
-                .Select(kv => (Id: kv.Key, Amt: Math.Abs(kv.Value))).OrderByDescending(x => x.Amt).ToList();
-
-            var creditAmts = credits.Select(c => c.Amt).ToList();
-            var debtAmts = debts.Select(d => d.Amt).ToList();
-
-            var transactions = new List<SettlementItem>();
-            int ci = 0, di = 0;
-            while (ci < credits.Count && di < debts.Count)
+            return new BudgetOverviewDto
             {
-                var transfer = Math.Round(Math.Min(creditAmts[ci], debtAmts[di]), 2);
-                if (transfer > 0.005m)
-                {
-                    var from = _trip.Members.First(m => m.Id == debts[di].Id);
-                    var to = _trip.Members.First(m => m.Id == credits[ci].Id);
-                    transactions.Add(new SettlementItem { FromName = from.Name, ToName = to.Name, Amount = transfer });
-                }
-                creditAmts[ci] -= transfer;
-                debtAmts[di] -= transfer;
-                if (creditAmts[ci] < 0.01m) ci++;
-                if (debtAmts[di] < 0.01m) di++;
-            }
-
-            return new SettlementResult
-            {
-                Transactions = transactions,
-                Balances = summaries,
-                IsSettled = !transactions.Any()
+                TripId = trip.Id,
+                TripName = trip.Name,
+                TotalBudget = trip.TotalBudget,
+                TotalSpent = totalSpent,
+                Remaining = remaining,
+                SpentPct = spentPct,
+                Categories = categories
             };
         }
     }
+
+    public bool UpdateCategoryBudgets(Guid tripId, CategoryBudgetsRequest req)
+    {
+        lock (_lock)
+        {
+            var trip = _trips.FirstOrDefault(t => t.Id == tripId);
+            if (trip is null) return false;
+            trip.CategoryBudgets = req.Budgets ?? new();
+            return true;
+        }
+    }
+
+    // ── Profile stats ────────────────────────────────────────
+    public AllTripsStats GetStats()
+    {
+        lock (_lock)
+        {
+            var recent = _trips
+                .SelectMany(t => t.Expenses)
+                .OrderByDescending(e => e.Date)
+                .Take(5)
+                .Select(ToExpenseDto)
+                .ToList();
+
+            return new AllTripsStats
+            {
+                TripCount = _trips.Count,
+                ExpenseCount = _trips.Sum(t => t.Expenses.Count),
+                TotalSpent = _trips.Sum(t => t.Expenses.Sum(e => e.Amount)),
+                RecentExpenses = recent
+            };
+        }
+    }
+
+    // ── Helpers ──────────────────────────────────────────────
+    private static TripSummaryDto Summary(Trip t)
+    {
+        var spent = t.Expenses.Sum(e => e.Amount);
+        var remaining = t.TotalBudget - spent;
+        var pct = t.TotalBudget > 0 ? (int)Math.Round(spent / t.TotalBudget * 100) : 0;
+        return new TripSummaryDto
+        {
+            Id = t.Id, Name = t.Name, DateRange = t.DateRange,
+            TotalBudget = t.TotalBudget, TotalSpent = spent,
+            Remaining = remaining, SpentPct = pct,
+            CoverIndex = t.CoverIndex, ExpenseCount = t.Expenses.Count
+        };
+    }
+
+    private static TripDetailDto Detail(Trip t)
+    {
+        var s = Summary(t);
+        return new TripDetailDto
+        {
+            Id = s.Id, Name = s.Name, DateRange = s.DateRange,
+            TotalBudget = s.TotalBudget, TotalSpent = s.TotalSpent,
+            Remaining = s.Remaining, SpentPct = s.SpentPct,
+            CoverIndex = s.CoverIndex, ExpenseCount = s.ExpenseCount,
+            Expenses = t.Expenses.OrderByDescending(e => e.Date).Select(ToExpenseDto).ToList()
+        };
+    }
+
+    private static ExpenseDto ToExpenseDto(Expense e) => new()
+    {
+        Id = e.Id, Description = e.Description, Amount = e.Amount,
+        Category = e.Category, CategoryName = CategoryMeta.Name(e.Category),
+        CategoryIcon = CategoryMeta.Icon(e.Category), CategoryTint = CategoryMeta.Tint(e.Category),
+        Date = e.Date.ToLocalTime().ToString("dd MMM yyyy")
+    };
 }

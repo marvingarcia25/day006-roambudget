@@ -1,57 +1,89 @@
 namespace RoamBudget.Models;
 
-public class Member
+public enum Category
+{
+    Food = 0,
+    Accommodation = 1,
+    Transport = 2,
+    Activities = 3,
+    Shopping = 4,
+    Other = 5
+}
+
+public static class CategoryMeta
+{
+    public static string Icon(Category c) => c switch
+    {
+        Category.Food          => "🍽️",
+        Category.Accommodation => "🏨",
+        Category.Transport     => "🚗",
+        Category.Activities    => "🎭",
+        Category.Shopping      => "🛍️",
+        _                      => "💼"
+    };
+
+    public static string Name(Category c) => c.ToString();
+
+    public static string Tint(Category c) => c switch
+    {
+        Category.Food          => "#FFF4E6",
+        Category.Accommodation => "#E6F4FF",
+        Category.Transport     => "#EFF6FF",
+        Category.Activities    => "#F4F0FF",
+        Category.Shopping      => "#FFF0F9",
+        _                      => "#F0F4F8"
+    };
+}
+
+public class Trip
 {
     public Guid Id { get; set; } = Guid.NewGuid();
-    public string Name { get; set; } = "";
+    public string Name { get; set; } = "My Trip";
+    public string DateRange { get; set; } = "";
+    public decimal TotalBudget { get; set; }
+    public Dictionary<Category, decimal> CategoryBudgets { get; set; } = new();
+    public List<Expense> Expenses { get; set; } = new();
+    public int CoverIndex { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
-
-public class Split
-{
-    public Guid MemberId { get; set; }
-    public decimal Amount { get; set; }
-}
-
-public enum ExpenseType { Kitty, Custom }
 
 public class Expense
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Description { get; set; } = "";
     public decimal Amount { get; set; }
-    public Guid PaidById { get; set; }
-    public ExpenseType Type { get; set; }
-    public List<Split> Splits { get; set; } = new();
+    public Category Category { get; set; }
     public DateTime Date { get; set; } = DateTime.UtcNow;
 }
 
-public class Trip
-{
-    public string Name { get; set; } = "Our Trip";
-    public List<Member> Members { get; set; } = new();
-    public decimal KittyPerPerson { get; set; } = 200;
-    public List<Expense> Expenses { get; set; } = new();
-}
+// ── Request DTOs ─────────────────────────────────────────────
+public record CreateTripRequest(
+    string Name,
+    string? DateRange,
+    decimal TotalBudget,
+    int? CoverIndex,
+    Dictionary<Category, decimal>? CategoryBudgets);
 
-public record SetupRequest(string? TripName, decimal KittyPerPerson);
-public record AddMemberRequest(string? Name);
 public record AddExpenseRequest(
-    string? Description,
+    string Description,
     decimal Amount,
-    Guid PaidById,
-    ExpenseType Type,
-    List<Guid>? IncludedMemberIds
-);
+    Category Category,
+    DateTime? Date);
 
-public class TripState
+public record CategoryBudgetsRequest(Dictionary<Category, decimal> Budgets);
+
+// ── Response DTOs ────────────────────────────────────────────
+public class TripSummaryDto
 {
-    public string TripName { get; set; } = "";
-    public decimal KittyPerPerson { get; set; }
-    public decimal TotalKitty { get; set; }
-    public decimal KittySpent { get; set; }
-    public decimal KittyRemaining { get; set; }
-    public List<Member> Members { get; set; } = new();
-    public List<ExpenseDto> Expenses { get; set; } = new();
+    public Guid Id { get; set; }
+    public string Name { get; set; } = "";
+    public string DateRange { get; set; } = "";
+    public decimal TotalBudget { get; set; }
+    public decimal TotalSpent { get; set; }
+    public decimal Remaining { get; set; }
+    public int SpentPct { get; set; }
+    public int CoverIndex { get; set; }
+    public int ExpenseCount { get; set; }
 }
 
 public class ExpenseDto
@@ -59,36 +91,45 @@ public class ExpenseDto
     public Guid Id { get; set; }
     public string Description { get; set; } = "";
     public decimal Amount { get; set; }
-    public string PaidByName { get; set; } = "";
-    public ExpenseType Type { get; set; }
+    public Category Category { get; set; }
+    public string CategoryName { get; set; } = "";
+    public string CategoryIcon { get; set; } = "";
+    public string CategoryTint { get; set; } = "";
     public string Date { get; set; } = "";
-    public List<SplitDto> Splits { get; set; } = new();
 }
 
-public class SplitDto
+public class TripDetailDto : TripSummaryDto
 {
-    public string MemberName { get; set; } = "";
-    public decimal Amount { get; set; }
+    public List<ExpenseDto> Expenses { get; set; } = new();
 }
 
-public class SettlementResult
+public class CategoryBudgetDto
 {
-    public List<SettlementItem> Transactions { get; set; } = new();
-    public List<BalanceSummary> Balances { get; set; } = new();
-    public bool IsSettled { get; set; }
+    public Category Category { get; set; }
+    public string CategoryName { get; set; } = "";
+    public string CategoryIcon { get; set; } = "";
+    public string CategoryTint { get; set; } = "";
+    public decimal Budget { get; set; }
+    public decimal Spent { get; set; }
+    public decimal Remaining { get; set; }
+    public int SpentPct { get; set; }
 }
 
-public class SettlementItem
+public class BudgetOverviewDto
 {
-    public string FromName { get; set; } = "";
-    public string ToName { get; set; } = "";
-    public decimal Amount { get; set; }
+    public Guid TripId { get; set; }
+    public string TripName { get; set; } = "";
+    public decimal TotalBudget { get; set; }
+    public decimal TotalSpent { get; set; }
+    public decimal Remaining { get; set; }
+    public int SpentPct { get; set; }
+    public List<CategoryBudgetDto> Categories { get; set; } = new();
 }
 
-public class BalanceSummary
+public class AllTripsStats
 {
-    public string MemberName { get; set; } = "";
-    public decimal TotalPaid { get; set; }
-    public decimal TotalOwed { get; set; }
-    public decimal NetBalance { get; set; }
+    public int TripCount { get; set; }
+    public int ExpenseCount { get; set; }
+    public decimal TotalSpent { get; set; }
+    public List<ExpenseDto> RecentExpenses { get; set; } = new();
 }
